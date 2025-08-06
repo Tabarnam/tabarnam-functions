@@ -1,0 +1,14 @@
+{
+  "Name": "Custom Cosmos Data Contributor",
+  "IsCustom": true,
+  "Description": "Custom role for Cosmos DB data access including readMetadata",
+  "Actions": [
+    "Microsoft.DocumentDB/databaseAccounts/readMetadata"
+  ],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.DocumentDB/databaseAccounts/*"
+  ],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/d33d4912-0593-4367-b504-306fc7fb6ded"]
+}

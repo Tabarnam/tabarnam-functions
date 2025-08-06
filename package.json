@@ -1,0 +1,17 @@
+{
+  "name": "tabarnam-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions for Tabarnam xAI integration",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.5.0",
+    "@azure/functions": "^4.3.0",
+    "@azure/identity": "^4.11.0",
+    "axios": "^1.7.7",
+    "zod": "^3.23.8"
+  },
+  "type": "module"
+}
