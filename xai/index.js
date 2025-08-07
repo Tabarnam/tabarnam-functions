@@ -2,7 +2,6 @@
 import { z } from 'zod';
 import axios from 'axios';
 import { CosmosClient } from '@azure/cosmos';
-import { DefaultAzureCredential } from '@azure/identity';
 
 const schema = z.array(
   z.object({
@@ -190,8 +189,10 @@ export default async function run(request, context) {
     const validatedCompanies = schema.parse(companies); // Validate with zod
 
     // Save to Cosmos DB
-    const credential = new DefaultAzureCredential();
-    const client = new CosmosClient({ endpoint: 'https://tabarnam-cosmos-db.documents.azure.com:443/', aadCredentials: credential });
+    const client = new CosmosClient({
+      endpoint: 'https://tabarnam-cosmos-db.documents.azure.com:443/',
+      key: process.env.COSMOS_DB_KEY
+    });
     const database = client.database('TabarnamDB');
     const container = database.container('Companies');
     for (const company of validatedCompanies) {
