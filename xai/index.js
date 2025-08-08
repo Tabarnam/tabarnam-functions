@@ -1,3 +1,4 @@
+```javascript
 // xai/index.js
 import { z } from 'zod';
 import axios from 'axios';
@@ -26,8 +27,35 @@ const schema = z.array(
   })
 );
 
-function buildPrompt(query, previousCompanies = []) {
-  let basePrompt = `Provide exactly 1 unique company that makes products related to (${query}), with no fewer, in this exact structured JSON format: [ {"company_name": "name", "company_tagline": "tagline", "industries": ["industry1"], "product_keywords": "keywords separated by comma", "url": "website", "email_address": "email", "headquarters_location": "location", "manufacturing_locations": ["location1"], "amazon_url": "amazon url", "red_flag": false, "reviews": [{"text": "review text", "link": "review link"}, ... (3 reviews)] } ]. Conduct a thorough search for this company to ensure complete and accurate data. Be maximally truthful and avoid hallucinations. Each field must match the key names exactly for successful import. Always include the Amazon store URL if the company has one (search for it if needed, format as "https://www.amazon.com/stores/BrandName/page/ID" or similar seller/store link). Include exactly 3 customer reviews with text and links from credible sources (prefer Consumer Reports, magazines, or verified retail like Amazon). Ensure companies are unique and different from previous results, with a focus on transparent supply chain and sustainable sourcing. If fewer than 1 are available, return what you have with a warning: []`;
+const requestSchema = z.object({
+  maxImports: z.number().int().min(1).max(20).optional().default(1),
+  search: z.object({
+    company_name: z.string().optional(),
+    product_keywords: z.string().optional(),
+    industries: z.string().optional(),
+    headquarters_location: z.string().optional(),
+    manufacturing_locations: z.string().optional(),
+    email_address: z.string().optional(),
+    url: z.string().optional(),
+    amazon_url: z.string().optional(),
+  }).refine(data => Object.values(data).some(val => val !== undefined), {
+    message: "At least one search field must be provided",
+  })
+});
+
+function buildPrompt(search, previousCompanies = []) {
+  let searchConditions = [];
+  if (search.company_name) searchConditions.push(`company_name containing "${search.company_name}"`);
+  if (search.product_keywords) searchConditions.push(`product_keywords containing "${search.product_keywords}"`);
+  if (search.industries) searchConditions.push(`industries including "${search.industries}"`);
+  if (search.headquarters_location) searchConditions.push(`headquarters_location in "${search.headquarters_location}"`);
+  if (search.manufacturing_locations) searchConditions.push(`manufacturing_locations including "${search.manufacturing_locations}"`);
+  if (search.email_address) searchConditions.push(`email_address matching "${search.email_address}"`);
+  if (search.url) searchConditions.push(`url matching "${search.url}"`);
+  if (search.amazon_url) searchConditions.push(`amazon_url matching "${search.amazon_url}"`);
+
+  const queryString = searchConditions.length > 0 ? searchConditions.join(' and ') : 'any company';
+  let basePrompt = `Provide exactly 1 unique company matching (${queryString}), with no fewer, in this exact structured JSON format: [ {"company_name": "name", "company_tagline": "tagline", "industries": ["industry1"], "product_keywords": "keywords separated by comma", "url": "website", "email_address": "email", "headquarters_location": "location", "manufacturing_locations": ["location1"], "amazon_url": "amazon url", "red_flag": false, "reviews": [{"text": "review text", "link": "review link"}, ... (3 reviews)] } ]. Conduct a thorough search for this company to ensure complete and accurate data. Be maximally truthful and avoid hallucinations. Each field must match the key names exactly for successful import. Always include the Amazon store URL if the company has one (search for it if needed, format as "https://www.amazon.com/stores/BrandName/page/ID" or similar seller/store link). Include exactly 3 customer reviews with text and links from credible sources (prefer Consumer Reports, magazines, or verified retail like Amazon). Ensure companies are unique and different from previous results, with a focus on transparent supply chain and sustainable sourcing. If fewer than 1 are available, return what you have with a warning: []`;
   if (previousCompanies.length > 0) {
     basePrompt += ` Do not repeat any of these companies: ${previousCompanies.join(', ')}.`;
   }
@@ -57,15 +85,14 @@ async function geocodeLocation(location) {
   }
 }
 
-async function callXAI(query) {
+async function callXAI(search, maxImports) {
   const xaiApiKey = process.env.XAI_API_KEY;
   if (!xaiApiKey) throw new Error('Missing XAI_API_KEY');
   let allCompanies = [];
   let page = 1;
-  const maxPages = 1; // Set to 1 for testing to avoid long runs
-  while (page <= maxPages) {
+  while (page <= maxImports && allCompanies.length < maxImports) {
     try {
-      const prompt = buildPrompt(query, allCompanies.map(c => c.company_name));
+      const prompt = buildPrompt(search, allCompanies.map(c => c.company_name));
       console.log(`Calling xAI API for company ${page} at ${new Date().toISOString()}`);
       const response = await axios.post('https://api.x.ai/v1/chat/completions', {
         model: 'grok-4-latest',
@@ -172,18 +199,11 @@ export default async function run(request, context) {
 
   const body = request?.bindings?.request?.body || await request.json();
   console.log('Request body:', body);
-  const { query } = body;
-  if (!query || typeof query !== 'string') {
-    console.log('Invalid query:', query);
-    return {
-      status: 400,
-      body: JSON.stringify({ error: 'Missing or invalid query' }),
-    };
-  }
-
   try {
-    console.log('Processing query:', query);
-    const companies = await callXAI(query);
+    const { maxImports, search } = requestSchema.parse(body);
+    console.log('Validated request:', { maxImports, search });
+
+    const companies = await callXAI(search, maxImports);
     console.log('Companies fetched:', companies.length);
     console.log('Companies data:', JSON.stringify(companies, null, 2));
     const validatedCompanies = schema.parse(companies); // Validate with zod
@@ -201,7 +221,7 @@ export default async function run(request, context) {
 
     console.log(`✅ IMPORT SUCCESS: ${validatedCompanies.length} unique companies via xAI`);
     let status = 'complete';
-    if (companies.length < 50) status = 'exhaustive - review or revise query';
+    if (companies.length < maxImports) status = 'exhaustive - review or revise search';
     console.log('Returning 200 with body:', JSON.stringify({ companies: validatedCompanies, status }));
     return {
       status: 200,
@@ -214,8 +234,9 @@ export default async function run(request, context) {
       console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
     }
     return {
-      status: 500,
-      body: JSON.stringify({ error: error.message || 'Unknown error' }),
+      status: 400,
+      body: JSON.stringify({ error: error.message || 'Invalid request' }),
     };
   }
 }
+```
