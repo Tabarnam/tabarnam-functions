@@ -1,13 +1,15 @@
 {
-  "Name": "Custom Cosmos Data Contributor",
+  "Name": "Custom Cosmos Data Contributor V4",
   "IsCustom": true,
-  "Description": "Custom role for Cosmos DB data access including readMetadata",
-  "Actions": [
-    "Microsoft.DocumentDB/databaseAccounts/readMetadata"
-  ],
+  "Description": "Custom role for Cosmos DB SQL API data access including upsert",
+  "Actions": [],
   "NotActions": [],
   "DataActions": [
-    "Microsoft.DocumentDB/databaseAccounts/*"
+    "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/read",
+    "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/read",
+    "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/write",
+    "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/create",
+    "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/replace"
   ],
   "NotDataActions": [],
   "AssignableScopes": ["/subscriptions/d33d4912-0593-4367-b504-306fc7fb6ded"]

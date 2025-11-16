@@ -4,15 +4,16 @@
       "authLevel": "function",
       "type": "httpTrigger",
       "direction": "in",
-      "name": "request",
+      "name": "req",
       "methods": ["get", "post", "options"],
       "route": "xai"
     },
     {
       "type": "http",
       "direction": "out",
-      "name": "$return"
+      "name": "res"
     }
   ],
-  "scriptFile": "index.js"
+  "scriptFile": "index.js",
+  "entryPoint": "run"
 }

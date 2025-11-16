@@ -1,0 +1,12 @@
+{
+  "RoleName": "TabarnamUpsertRole",
+  "Type": "CustomRole",
+  "AssignableScopes": ["/dbs/TabarnamDB/colls/Companies"],
+  "Permissions": [
+    {
+      "DataActions": [
+        "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*"
+      ]
+    }
+  ]
+}
